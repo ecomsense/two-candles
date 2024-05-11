@@ -10,6 +10,9 @@ except ModuleNotFoundError:
 from toolkit.fileutils import Fileutils
 
 S_DATA = "../data/"
+S_UNIV = S_DATA + "universe.csv"
+S_OUT = S_DATA + "out.csv"
+S_DUMP = S_DATA + "master.csv"
 logging = Logger(10)
 O_FUTL = Fileutils()
 
@@ -29,6 +32,7 @@ def yml_to_obj(arg=None):
 
     if not flag and arg:
         logging.warning(f"using default {file=}")
+        __import__("shutil").copyfile("../settings.yml", file)
     elif not flag and arg is None:
         logging.error(f"fill the {file=} file and try again")
         __import__("sys").exit()
@@ -46,6 +50,7 @@ def win_yml_to_obj(arg=None):
         flag = O_FUTL.is_file_exists(file)
         if not flag and arg:
             logging.warning(f"using default {file} file")
+            __import__("shutil").copyfile("../settings.yml", file)
         elif not flag and arg is None:
             logging.error(f"fill the {file=} and try again")
 
