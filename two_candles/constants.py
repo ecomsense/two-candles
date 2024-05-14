@@ -13,7 +13,7 @@ S_DATA = "../data/"
 S_UNIV = S_DATA + "universe.csv"
 S_OUT = S_DATA + "out.csv"
 S_DUMP = S_DATA + "master.csv"
-logging = Logger(10)
+logging = Logger(20)
 O_FUTL = Fileutils()
 
 

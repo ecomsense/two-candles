@@ -64,9 +64,12 @@ class Symbol:
             lst_excsym = i.split(":")
             exch = lst_excsym[0]
             sym = lst_excsym[1]
-            self.dct[i] = int(
-                df.loc[(df["exchange"] == exch) & (df["tradingsymbol"] == sym)][
-                    "instrument_token"
-                ].values[0]
-            )
+            try:
+                self.dct[i] = int(
+                    df.loc[(df["exchange"] == exch) & (df["tradingsymbol"] == sym)][
+                        "instrument_token"
+                    ].values[0]
+                )
+            except Exception as e:
+                print(e)
         return self.dct
