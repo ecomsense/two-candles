@@ -3,6 +3,7 @@ from toolkit.kokoo import timer
 from traceback import print_exc
 import pandas as pd
 import pendulum as pdlm
+from typing import Tuple
 
 
 class Strategy:
@@ -41,7 +42,9 @@ class Strategy:
             for x in lst
         ]
         symtkn["fast"] = lst
-        self.df = pd.DataFrame(lst)
+        # keep last 100 candles only
+
+        self.df = pd.DataFrame(lst)[-100:]
         self.df.to_csv(f_fast, index=False)
 
     def fast(self, symtkn):
@@ -63,103 +66,55 @@ class Strategy:
         resp = self.api.ltp(lst_of_exchsym)
         print(resp)
 
-    def find_indices(self, symtkn, minv, maxv):
-        self.fast(symtkn)
-        # initilize tuple and append start and end
+    def find_highest_values(
+        self,
+        symtkn,
+    ):
         self.indices = []
-        long = len(self.df)
-        logging.debug(f"length {long=} vs subset {maxv}")
-        minimum_candles = 6
+        self.fast(symtkn)
+        sorted_df = self.df.sort_values(by="high", ascending=False)
+        highest_indices = sorted_df.index[:2]
 
-        if long >= minimum_candles:
-            start = long - min(maxv, long) - 3
-            end = long
-        else:
-            return None
+        if (
+            abs(highest_indices[1] - highest_indices[0]) >= 10
+            and abs(highest_indices[1] - highest_indices[0]) <= 100
+            and len(self.df) > max(highest_indices) + 2
+            and sorted_df.iloc[0]["high"] - sorted_df.iloc[1]["high"] < 10
+        ):
+            self.indices = highest_indices
 
-        def find_start_and_end(start, end):
-            try:
-                logging.debug(f"filtering from {start=} {end=}")
-                # print(df[start : end + 1])
-                sdf = self.df[start : end - 3 - minv]
-                candle_b = end - 3
-                candle_a = sdf["high"].idxmax()
-                self.indices.append((candle_a, candle_b))
-                # print the value of df.index 122
-                high_b = self.df.loc[candle_b, "high"]
-                high_a = self.df.loc[candle_a, "high"]
-                logging.debug(f"{candle_a=} {high_a=}")
-                logging.debug(f"{candle_b=} {high_b=}")
-                start = candle_a - maxv - 3
-                end = candle_a + 3
-                # logging.debug(sdf)
-                if start < 0 and end >= 6:
-                    start = 0
-                logging.debug(f"coming up next {start=}{end=}")
-                return start, end
-            except Exception as e:
-                print(e)
-                print_exc()
-
-        while start > 0:
-            start, end = find_start_and_end(start, end)
-            timer(1)
-
-    def eval_variance(self, var):
-        try:
-            self.variance = []
-
-            def variance(tpl):
-                candle_a, candle_b = tpl
-                logging.debug(f"{candle_a=} {candle_b=}")
-                a_high = self.df.iloc[candle_a]["high"]
-                b_high = self.df.iloc[candle_b]["high"]
-                logging.debug(f"{a_high=} {b_high=}")
-                var_perc = float((a_high - b_high) / a_high * 100)
-                logging.debug(f"{var} > {abs(var_perc)}")
-                return var > abs(var_perc)
-
-            if len(self.indices) > 0:
-                logging.info("variance")
-                for i in self.indices:
-                    logging.debug(str(i))
-                    flag = variance(i)
-                    if flag:
-                        self.variance.append(i)
-        except Exception as e:
-            print(e)
-            print_exc()
-
-    def eval_higher_low(self):
+    def eval_highs(self):
         try:
             hl = []
 
-            def higher_low(tpl):
+            def highs(tpl):
                 truths = []
                 for _, v in enumerate(tpl):
-                    elder = v + 1
-                    younger = v + 2
+                    younger = v + 1
+                    elder = v + 2
                     e_low = self.df.iloc[elder]["low"]
                     y_low = self.df.iloc[younger]["low"]
                     e_high = self.df.iloc[elder]["high"]
                     y_high = self.df.iloc[younger]["high"]
                     flag = y_low < e_low and y_high < e_high
-                    logging.debug(f"hh and hl {flag}")
+                    logging.debug(f"is candle #{v} followed by hh and lh ? {flag}")
                     truths.append(flag)
                 if all(truths):
-                    logging.info("evaluating to ..True")
                     candle_a, candle_b = tpl
-                    return max(
+                    logging.info(f"{candle_a=} {candle_b=}")
+                    highest_candle = max(
                         self.df.iloc[candle_a]["high"], self.df.iloc[candle_b]["high"]
                     )
+                    logging.debug(f"{highest_candle=}")
+                    return highest_candle
                 else:
                     return None
 
-            if len(self.variance) > 0:
-                logging.debug("evaluating higher low")
-                for i in self.variance:
+            if len(self.indices) > 0:
+                logging.debug("evaluating ... highs")
+                for i in self.indices:
                     logging.debug(str(i))
-                    is_hl = higher_low(i)
+                    is_hl = highs(i)
                     logging.debug(f"{is_hl=}")
                     if is_hl:
                         hl.append(is_hl)
@@ -171,9 +126,7 @@ class Strategy:
 
     def run(self):
         for symtkn in self.lst:
-            logging.info(f"processing {symtkn['symbol']}")
-            self.find_indices(symtkn, 10, 100)
-            self.eval_variance(1)
-            self.eval_higher_low()
-            if "lst_hl" in locals() and len(lst_hl) > 0:
-                logging.info(f"buy signal received {lst_hl}")
+            logging.info(f"processing ... {symtkn['symbol']}")
+            self.find_highest_values(symtkn)
+            buy_triggers = self.eval_highs()
+            print(buy_triggers)
