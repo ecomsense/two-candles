@@ -12,9 +12,13 @@ from toolkit.fileutils import Fileutils
 S_DATA = "../data/"
 S_UNIV = S_DATA + "universe.csv"
 S_OUT = S_DATA + "out.csv"
-S_DUMP = S_DATA + "master.csv"
+S_DUMP = S_DATA + "master.json"
+S_JSON = S_DATA + "symbols.json"
 logging = Logger(10)
 O_FUTL = Fileutils()
+
+if not O_FUTL.is_file_exists(S_JSON):
+    logging.info(f"creating {S_JSON}")
 
 
 def yml_to_obj(arg=None):
