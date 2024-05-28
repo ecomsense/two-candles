@@ -135,13 +135,9 @@ class Strategy:
 
                 a_flag = ay_low > ae_low
                 b_flag = by_low > be_low
-                txt = (
-                    f"is candle #{candle_a} {a_date} preceded by Higher lows ? {a_flag}"
-                )
+                txt = f"is candle #{candle_a} {a_date} preceded by HLs? {ay_low}>{ae_low} {a_flag}"
                 logging.info(txt)
-                txt = (
-                    f"is candle #{candle_b} {b_date} followed by Higher lows ? {b_flag}"
-                )
+                txt = f"is candle #{candle_b} {b_date} followed by HLs? {by_low}>{be_low} {b_flag}"
                 logging.info(txt)
                 if a_flag and b_flag:
                     lowest_candle = max(
@@ -224,13 +220,9 @@ class Strategy:
 
                 a_flag = ay_high > ae_high
                 b_flag = by_high > be_high
-                txt = (
-                    f"is candle #{candle_a} {a_date} preceded by Lower Highs ? {a_flag}"
-                )
+                txt = f"is candle #{candle_a} {a_date} preceded by LHs ? {ay_high}>{ae_high} {a_flag}"
                 logging.info(txt)
-                txt = (
-                    f"is candle #{candle_b} {b_date} followed by Lower Highs ? {b_flag}"
-                )
+                txt = f"is candle #{candle_b} {b_date} followed by LHs ? {by_high}>{be_high} {b_flag}"
                 logging.info(txt)
                 if a_flag and b_flag:
                     highest_candle = max(
@@ -259,7 +251,6 @@ class Strategy:
                 cup_low = subset_df["low"].min()
                 logging.debug(f"{cup_low=}  is equal to {lowest=}")
                 if cup_low == lowest:
-                    logging.debug("evaluating ... highs")
                     highest = highs(candle_a, candle_b, lowest)
 
         except Exception as e:
