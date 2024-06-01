@@ -9,16 +9,22 @@ except ModuleNotFoundError:
 
 from toolkit.fileutils import Fileutils
 
+O_FUTL = Fileutils()
+S_DATA = "../data/"
+S_LOG = S_DATA + "log.txt"
+if not O_FUTL.is_file_exists(S_LOG):
+    print("creating data dir")
+    O_FUTL.add_path(S_LOG)
+
 S_DATA = "../data/"
 S_UNIV = S_DATA + "universe.csv"
 S_OUT = S_DATA + "out.csv"
 S_DUMP = S_DATA + "master.json"
 S_JSON = S_DATA + "symbols.json"
-logging = Logger(10)
 O_FUTL = Fileutils()
 
 if not O_FUTL.is_file_exists(S_JSON):
-    logging.info(f"creating {S_JSON}")
+    print(f"creating {S_JSON}")
 
 
 def yml_to_obj(arg=None):
@@ -35,10 +41,10 @@ def yml_to_obj(arg=None):
     flag = O_FUTL.is_file_exists(file)
 
     if not flag and arg:
-        logging.warning(f"using default {file=}")
+        print(f"using default {file=}")
         __import__("shutil").copyfile("../settings.yml", file)
     elif not flag and arg is None:
-        logging.error(f"fill the {file=} file and try again")
+        print(f"fill the {file=} file and try again")
         __import__("sys").exit()
 
     return O_FUTL.get_lst_fm_yml(file)
@@ -56,11 +62,11 @@ def win_yml_to_obj(arg=None):
             logging.warning(f"using default {file} file")
             __import__("shutil").copyfile("../settings.yml", file)
         elif not flag and arg is None:
-            logging.error(f"fill the {file=} and try again")
+            print(f"fill the {file=} and try again")
 
         return O_FUTL.get_lst_fm_yml(file)
     except Exception as e:
-        logging.error(e)
+        print(e)
         print_exc()
 
 
@@ -73,7 +79,7 @@ def os_and_objects():
             O_CNFG = win_yml_to_obj()
             O_SETG = win_yml_to_obj("settings.yml")
     except Exception as e:
-        logging.error(e)
+        print(e)
         print_exc()
         __import__("sys").exit(1)
     else:
@@ -82,3 +88,13 @@ def os_and_objects():
 
 O_CNFG, O_SETG = os_and_objects()
 print(O_CNFG, O_SETG)
+
+
+def set_logger():
+    level = O_SETG.get("log_level", 10)
+    if O_SETG.get("show_log", False):
+        return Logger(level)
+    return Logger(level, S_LOG)
+
+
+logging = set_logger()

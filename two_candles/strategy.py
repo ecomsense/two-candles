@@ -3,6 +3,7 @@ from toolkit.kokoo import timer
 from traceback import print_exc
 import pandas as pd
 import pendulum as pdlm
+from pprint import pprint
 
 
 class Strategy:
@@ -20,7 +21,6 @@ class Strategy:
             "trigger",
             "sl",
         ]
-
         pd.DataFrame(columns=columns).to_csv(self.signals_file, index=False)
 
         temp = O_FUTL.read_file(S_JSON)
@@ -79,10 +79,10 @@ class Strategy:
         try:
             f_fast = self.data + symtkn["symbol"] + "/" + "fast.csv"
             mtime = O_FUTL.get_file_mtime(f_fast)
+            # convert to gmt +5
             last_update = pdlm.from_format(
                 mtime, "YYYY-MM-DD HH:mm:ss", tz="Asia/Kolkata"
             )
-            # convert to gmt +5
             logging.debug(f"last update time {last_update}")
             if pdlm.now() - last_update >= pdlm.duration(minutes=1):
                 self._get_history(symtkn, f_fast)
@@ -91,100 +91,10 @@ class Strategy:
             print(f"fast {e}")
             print_exc()
 
-    def find_lowest_values(
-        self,
-        symtkn,
-    ):
-        logging.debug("find_lowest_values")
-        self.indices = []
-        self.fast(symtkn)
-        sorted_df = self.df.sort_values(by="low", ascending=True)
-        lowest_indices = sorted_df.index[:2].sort_values()
-        low_1 = self.df.iloc[lowest_indices[0]]["low"]
-        low_2 = self.df.iloc[lowest_indices[1]]["low"]
-        if (
-            lowest_indices[1] - lowest_indices[0] >= 10
-            and lowest_indices[1] - lowest_indices[0] <= 100
-            # right hand side has atleast two candles
-            and len(self.df) > lowest_indices[1] + 2
-            # left hand side has atleast two candles
-            and lowest_indices[0] - 2 > 0
-            and abs(low_1 - low_2) / max(low_1, low_2) * 100 < 10
-            # TODO
-            # and sorted_df.iloc[0]["low"] - sorted_df.iloc[1]["low"] < 10
-        ):
-            self.indices = lowest_indices
-
-    def eval_lows(self, symbol) -> int:
-        try:
-            logging.debug("evaluating .. lows")
-            lowest = 0
-
-            def lows(candle_a, candle_b, sl):
-                a_date = self.df.iloc[candle_a]["date"]
-                ay = candle_a - 1
-                ay_low = self.df.iloc[ay]["low"]
-                ae = candle_a - 2
-                ae_low = self.df.iloc[ae]["low"]
-
-                b_date = self.df.iloc[candle_b]["date"]
-                by = candle_b + 1
-                by_low = self.df.iloc[by]["low"]
-                be = candle_b + 2
-                be_low = self.df.iloc[be]["low"]
-
-                a_flag = ay_low > ae_low
-                b_flag = by_low > be_low
-                txt = f"is candle #{candle_a} {a_date} preceded by HLs? {ay_low}>{ae_low} {a_flag}"
-                logging.info(txt)
-                txt = f"is candle #{candle_b} {b_date} followed by HLs? {by_low}>{be_low} {b_flag}"
-                logging.info(txt)
-                if a_flag and b_flag:
-                    lowest_candle = max(
-                        self.df.iloc[candle_a]["low"], self.df.iloc[candle_b]["low"]
-                    )
-                    logging.debug(f"{lowest_candle=}")
-                    self.signal = dict(
-                        signal="long",
-                        symbol=symbol,
-                        candle_a=self.df.iloc[candle_a]["date"],
-                        extreme_a=self.df.iloc[candle_a]["low"],
-                        candle_b=self.df.iloc[candle_b]["date"],
-                        extreme_b=self.df.iloc[candle_b]["low"],
-                        trigger=lowest_candle,
-                        sl=sl,
-                    )
-                    return lowest_candle
-                else:
-                    return 0
-
-            if len(self.indices) > 0:
-                """
-                highest = self.df.sort_values(by="high", ascending=False).iloc[0][
-                    "high"
-                ]
-                """
-                candle_a, candle_b = self.indices[0], self.indices[1]
-                df = self.df.iloc[candle_a - 2 :]
-                highest = df["high"].max()
-                subset_df = self.df.iloc[candle_a:candle_b]
-                cup_high = subset_df["high"].max()
-
-                logging.debug(f"{cup_high=}  is equal to {highest=} ?")
-                if highest == cup_high:
-                    lowest = lows(candle_a, candle_b, highest)
-
-        except Exception as e:
-            print(e)
-            print_exc()
-        finally:
-            return lowest
-
     def find_highest_values(
         self,
         symtkn,
     ):
-        logging.debug("find_highest_values")
         self.indices = []
         self.fast(symtkn)
         sorted_df = self.df.sort_values(by="high", ascending=False)
@@ -199,10 +109,10 @@ class Strategy:
             and abs(highest_1 - highest_2) / max(highest_1, highest_2) * 100 < 10
         ):
             self.indices = highest_indices
+            logging.info(f"MATCH FOUND: {highest_1=} {highest_2=}")
 
     def eval_highs(self, symbol) -> int:
         try:
-            logging.debug("evaluating .. highs")
             highest = 0
 
             def highs(candle_a, candle_b, sl):
@@ -249,7 +159,7 @@ class Strategy:
                 lowest = df["low"].min()
                 subset_df = self.df.iloc[candle_a:candle_b]
                 cup_low = subset_df["low"].min()
-                logging.debug(f"{cup_low=}  is equal to {lowest=}")
+                logging.info(f"{cup_low=}  is equal to {lowest=} ?")
                 if cup_low == lowest:
                     highest = highs(candle_a, candle_b, lowest)
 
@@ -260,36 +170,22 @@ class Strategy:
             return highest
 
     def run(self):
-        for symtkn in self.lst:
-            logging.info(f"processing ... {symtkn['symbol']}")
-            is_position = symtkn.get("is_position", -11)
-            if is_position == -11 or is_position == 0:
-                symtkn["is_position"] = 0
-                self.find_highest_values(symtkn)
-                highest = self.eval_highs(symtkn["symbol"])
-                if highest > 0:
-                    symtkn["is_position"] = 1
-                    df = pd.read_csv(self.signals_file)
-                    new_row = pd.DataFrame(self.signal, index=[df.shape[0]])
-                    df = pd.concat([df, new_row], ignore_index=True)
-                    print(df)
-                    df.to_csv(self.signals_file, index=False)
-                    print(50 * "-")
-                    break
+        df = pd.read_csv(self.signals_file)
+        while True:
+            for symtkn in self.lst:
+                logging.info(f"processing ... {symtkn['symbol']}")
+                is_position = symtkn.get("is_position", -11)
+                if is_position == -11 or is_position == 0:
+                    symtkn["is_position"] = 0
+                    self.find_highest_values(symtkn)
+                    highest = self.eval_highs(symtkn["symbol"])
+                    if highest > 0:
+                        symtkn["is_position"] = 1
+                        new_row = pd.DataFrame(self.signal, index=[df.shape[0]])
+                        df = pd.concat([df, new_row], ignore_index=True)
+                        df.to_csv(self.signals_file, index=False)
+                        print(50 * "-")
                 timer(1)
-                self.find_lowest_values(symtkn)
-                lowest = self.eval_lows(symtkn["symbol"])
-                if lowest > 0:
-                    symtkn["is_position"] = -1
-                    df = pd.read_csv(self.signals_file)
-                    new_row = pd.DataFrame(self.signal, index=[df.shape[0]])
-                    df = pd.concat([df, new_row], ignore_index=True)
-                    print(df)
-                    df.to_csv(self.signals_file, index=False)
-                    print(50 * "-")
-            else:
-                POS = "BUY" if is_position == 1 else "SHORT"
-                print(f"{POS} found for {symtkn['symbol']}")
-                symtkn["is_position"] = 0
-
-        O_FUTL.write_file(S_JSON, self.lst)
+            pprint(self.lst)
+            timer(3)
+            O_FUTL.write_file(S_JSON, self.lst)
