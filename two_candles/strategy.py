@@ -101,6 +101,8 @@ class Strategy:
         highest_indices = sorted_df.index[:2].sort_values()
         highest_1 = self.df.iloc[highest_indices[0]]["high"]
         highest_2 = self.df.iloc[highest_indices[1]]["high"]
+        date_1 = self.df.iloc[highest_indices[0]]["date"]
+        date_2 = self.df.iloc[highest_indices[1]]["date"]
         if (
             highest_indices[1] - highest_indices[0] >= 10
             and highest_indices[1] - highest_indices[0] <= 100
@@ -109,7 +111,7 @@ class Strategy:
             and abs(highest_1 - highest_2) / max(highest_1, highest_2) * 100 < 10
         ):
             self.indices = highest_indices
-            logging.info(f"MATCH FOUND: {highest_1=} {highest_2=}")
+            logging.info(f"MATCH FOUND: {highest_1}@{date_1} {highest_2}@{date_2}")
 
     def eval_highs(self, symbol) -> int:
         try:
