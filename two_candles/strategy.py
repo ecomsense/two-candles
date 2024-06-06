@@ -162,7 +162,7 @@ class Strategy:
                 subset_df = self.df.iloc[candle_a:candle_b]
                 cup_low = subset_df["low"].min()
                 logging.info(f"{cup_low=}  is equal to {lowest=} ?")
-                if cup_low == lowest:
+                if cup_low <= lowest:
                     highest = highs(candle_a, candle_b, lowest)
 
         except Exception as e:
